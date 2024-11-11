@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mona</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #imageContainer {
+        width: 100%;
+        height: 100%;
+      }
+      #imageContainer img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="imageContainer"></div>
+
+    <audio id="audioHi" src="Hi.m4a" preload="auto"></audio>
+    <audio id="audioBye" src="Bye.m4a" preload="auto"></audio>
+
+    <script>
+      async function detectBody() {
+        const model = await bodyPix.load();
+
+        const video = document.createElement("video");
+        video.srcObject = await navigator.mediaDevices.getUserMedia({
+          video: {},
+        });
+        await video.play();
+
+        const imageContainer = document.getElementById("imageContainer");
+
+        let noPersonTimeout = null;
+        let hiPlayed = false;
+
+        // Play Hi.m4a
+        function playHiAudio() {
+          if (!hiPlayed) {
+            document.getElementById("audioHi").play();
+            hiPlayed = true;
+          }
+        }
+
+        // Show whiteout and play Bye.m4a
+        function showImageAndPlayAudio(imagePath, audio) {
+          imageContainer.innerHTML = `<img src="${imagePath}" alt="pic">`;
+          audio.play();
+        }
+
+        setInterval(async () => {
+          const segmentation = await model.segmentPerson(video);
+          const bodyInFrame = segmentation.allPoses.length > 0;
+
+          if (bodyInFrame) {
+            playHiAudio(); // play Hi.m4a
+            const bodyRegionIndex =
+              Math.floor(
+                segmentation.allPoses[0].keypoints[0].position.x /
+                  (video.videoWidth / 7)
+              ) + 1;
+            displayImage(bodyRegionIndex);
+            clearTimeout(noPersonTimeout); // clear nobody timer
+            noPersonTimeout = null; // reset timer
+          } else {
+            if (!noPersonTimeout) {
+              // if no people, start accounting
+              noPersonTimeout = setTimeout(() => {
+                showImageAndPlayAudio(
+                  "mona/wepb/s/rest.webp",
+                  document.getElementById("audioBye")
+                );
+              }, 500);
+              hiPlayed = false; // reset Hi.m4a playing path
+            }
+          }
+        }, 100);
+      }
+
+      function displayImage(region) {
+        let imagePath;
+        switch (region) {
+          case 1:
+            imagePath = "mona/wepb/s/right.webp";
+            break;
+          case 2:
+            imagePath = "mona/wepb/s/right2.webp";
+            break;
+          case 3:
+            imagePath = "mona/wepb/s/right3.webp";
+            break;
+          case 4:
+            imagePath = "mona/wepb/s/mid.webp";
+            break;
+          case 5:
+            imagePath = "mona/wepb/s/left1.webp";
+            break;
+          case 6:
+            imagePath = "mona/wepb/s/left2.webp";
+            break;
+          case 7:
+            imagePath = "mona/wepb/s/left.webp";
+            break;
+          default:
+            return;
+        }
+        const imageContainer = document.getElementById("imageContainer");
+        imageContainer.innerHTML = `<img src="${imagePath}" alt="pic">`;
+      }
+
+      detectBody();
+    </script>
+  </body>
+</html>
